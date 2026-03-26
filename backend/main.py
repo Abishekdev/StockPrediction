@@ -169,9 +169,9 @@ def get_current_user(token: str = Depends(get_token_from_header), db: Session = 
     return user
 
 
-@app.post("/api/auth/register", response_model=UserResponse)
+@app.post("/api/auth/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    """Register a new user."""
+    """Register a new user and return JWT token."""
     try:
         db_user = db.query(User).filter(User.email == user.email).first()
         if db_user:
@@ -187,8 +187,15 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_user)
 
+        # Create access token
+        access_token = create_access_token(data={"sub": db_user.username})
+        
         logger.info(f"New user registered: {user.username}")
-        return db_user
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": UserResponse.from_orm(db_user),
+        }
     except HTTPException:
         raise
     except Exception as e:

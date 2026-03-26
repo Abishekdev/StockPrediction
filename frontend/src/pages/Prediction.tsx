@@ -8,6 +8,7 @@ const Prediction: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [predicting, setPredicting] = useState(false);
   const [error, setError] = useState('');
+  const [showError, setShowError] = useState(false); // Control whether to display error
   const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
   const [predictions, setPredictions] = useState<PredictionResponse[]>([]);
 
@@ -19,9 +20,18 @@ const Prediction: React.FC = () => {
     setLoading(true);
     try {
       const result = await api.getPredictions();
-      setPredictions(result);
+      setPredictions(result || []);
+      setShowError(false); // Clear error on success
     } catch (err: any) {
-      setError('Failed to load prediction history');
+      console.error('Error loading predictions:', err);
+      if (err.response?.status === 401) {
+        setError('Please log in again');
+        setShowError(true);
+      } else if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
+        setShowError(true);
+      }
+      // Silently fail on initial load - it's ok to have no predictions yet
     } finally {
       setLoading(false);
     }
@@ -30,14 +40,17 @@ const Prediction: React.FC = () => {
   const handlePredict = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setShowError(false);
     setPredicting(true);
 
     try {
       const result = await api.predict(ticker.toUpperCase(), daysAhead);
       setPrediction(result);
+      setShowError(false);
       loadPredictions();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Prediction failed. Please try again.');
+      setShowError(true);
     } finally {
       setPredicting(false);
     }
@@ -52,7 +65,7 @@ const Prediction: React.FC = () => {
           Make a Prediction
         </h2>
 
-        {error && (
+        {showError && error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg flex items-start space-x-2">
             <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
             <p className="text-red-300">{error}</p>
@@ -147,7 +160,7 @@ const Prediction: React.FC = () => {
               <div className="bg-white/5 rounded-lg p-4">
                 <p className="text-gray-400 text-sm mb-1">Generated</p>
                 <p className="text-sm font-mono text-green-400">
-                  {new Date(prediction.created_at).toLocaleString()}
+                  {prediction.created_at ? new Date(prediction.created_at).toLocaleString() : 'N/A'}
                 </p>
               </div>
             </div>
@@ -210,7 +223,7 @@ const Prediction: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-xs">
-                      {new Date(pred.created_at).toLocaleDateString()}
+                      {pred.created_at ? new Date(pred.created_at).toLocaleDateString() : 'N/A'}
                     </td>
                   </tr>
                 ))}
