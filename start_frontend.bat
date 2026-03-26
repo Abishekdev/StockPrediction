@@ -1,0 +1,6 @@
+@echo off
+cd /d c:\Users\Admin\Documents\StockPrediction\frontend
+echo Installing frontend dependencies...
+call npm install
+echo Starting frontend on port 5173...
+call npm run dev -- --port 5173
